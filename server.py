@@ -242,6 +242,9 @@ def search_all(query: str, strict: bool) -> dict:
     result = {
         "query": query,
         "demo": DEMO_MODE,
+        # 쿠팡 API가 없을 때 사용자가 직접 비교해 볼 수 있도록 검색 링크 제공
+        "coupang_search_url": "https://www.coupang.com/np/search?q="
+                              + urllib.parse.quote(query),
         "count": len(items),
         "filtered_out": removed,
         "cheapest": items[0] if items else None,

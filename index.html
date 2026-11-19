@@ -39,6 +39,11 @@
   .best a.go { margin-left: auto; white-space: nowrap; text-decoration: none; background: var(--accent);
                color: #fff; padding: 12px 18px; border-radius: 10px; font-weight: 700; }
 
+  .coupang-link { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 16px;
+                  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+                  text-decoration: none; color: var(--text); font-size: 14px; }
+  .coupang-link:hover { border-color: var(--coupang); }
+  .coupang-link b { margin-left: auto; color: var(--coupang); }
   .meta { margin: 28px 2px 10px; color: var(--muted); font-size: 14px; display: flex;
           justify-content: space-between; }
   .list { background: var(--card); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
@@ -112,6 +117,10 @@ function render(d) {
       </div>
       <a class="go" href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener">구매하러 가기 →</a>
     </div>
+    ${!d.sources.coupang && !d.demo ? `
+    <a class="coupang-link" href="${esc(safeUrl(d.coupang_search_url))}" target="_blank" rel="noopener">
+      <span class="dot coupang"></span> 쿠팡 가격은 아직 자동 비교가 안 돼요. <b>쿠팡에서 직접 확인하기 →</b>
+    </a>` : ""}
     <div class="meta">
       <span>가격 낮은 순 ${d.count}개${d.filtered_out ? ` · ${d.filtered_out}개 제외됨` : ""}</span>
       <span>배송비 별도일 수 있어요</span>
