@@ -63,14 +63,23 @@ def normalize_sort(sort: str | None) -> str:
 
 
 # --------------------------------------------------------- 소스 호출 ----
-def _describe_error(exc: BaseException) -> str:
+STATUS_HINTS = {
+    401: "인증 실패: .env의 API 키를 확인하세요",
+    403: "권한 없음: 네이버 개발자센터 > 내 애플리케이션 > API 설정에서 '검색'이 선택돼 있는지 확인하세요",
+    429: "호출 한도 초과",
+}
+
+
+def describe_error(exc: BaseException) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         code = exc.response.status_code
-        if code in (401, 403):
-            return f"HTTP {code} (API 키를 확인하세요)"
-        if code == 429:
-            return "HTTP 429 (호출 한도 초과)"
-        return f"HTTP {code}"
+        try:  # 네이버는 {"errorMessage": ..., "errorCode": ...} 형태로 오류를 준다
+            body = exc.response.json()
+            detail = body.get("errorMessage") or body.get("message") or ""
+        except (ValueError, AttributeError):
+            detail = ""
+        parts = [f"HTTP {code}", STATUS_HINTS.get(code, ""), detail]
+        return " · ".join(p for p in parts if p)
     if isinstance(exc, httpx.TimeoutException):
         return "응답 시간 초과"
     return f"{type(exc).__name__}: {exc}"
@@ -93,7 +102,7 @@ async def fetch_all(query: str) -> tuple[list[dict], dict[str, str]]:
     errors: dict[str, str] = {}
     for name, result in zip(tasks, results):
         if isinstance(result, BaseException):
-            errors[name] = _describe_error(result)
+            errors[name] = describe_error(result)
         else:
             items.extend(result)
     return items, errors

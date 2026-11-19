@@ -33,6 +33,9 @@ def _to_price(value) -> int:
 # --------------------------------------------------------- 네이버 쇼핑 ----
 NAVER_URL = "https://openapi.naver.com/v1/search/shop.json"
 NAVER_FETCH_SIZE = 100  # 정확도순 상위 100건을 받아서 그 안에서 가격순으로 정렬한다
+# API 단계에서 중고와 렌탈(월 렌탈료가 가격으로 잡힘)을 빼서 100건을 아낀다.
+# 해외직구·구매대행(cbshop)은 실제로 살 수 있는 가격이라 포함한다.
+NAVER_EXCLUDE = "used:rental"
 # productType: 1~3 = 일반 상품, 4~6 = 중고, 7~9 = 단종, 10~12 = 판매예정
 NAVER_NEW_TYPES = {"1", "2", "3"}
 NAVER_CATALOG_TYPE = "1"  # 여러 판매처를 묶은 네이버 가격비교 카탈로그
@@ -65,7 +68,8 @@ def parse_naver(data: dict) -> list[dict]:
 async def search_naver(client: httpx.AsyncClient, query: str) -> list[dict]:
     resp = await client.get(
         NAVER_URL,
-        params={"query": query, "display": NAVER_FETCH_SIZE, "sort": "sim"},
+        params={"query": query, "display": NAVER_FETCH_SIZE, "sort": "sim",
+                "exclude": NAVER_EXCLUDE},
         headers={
             "X-Naver-Client-Id": settings.naver_client_id,
             "X-Naver-Client-Secret": settings.naver_client_secret,

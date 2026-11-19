@@ -162,3 +162,59 @@ def test_api_search():
 def test_api_search_requires_query():
     assert client.get("/api/search", params={"q": "  "}).status_code == 400
     assert client.get("/api/search").status_code == 422
+
+
+# --------------------------------------------------------- 실제 API 요청 형식 ----
+import httpx  # noqa: E402
+
+from app.config import settings  # noqa: E402
+from app.search import describe_error  # noqa: E402
+from app.sources import search_naver  # noqa: E402
+
+
+def test_naver_request_format(monkeypatch):
+    monkeypatch.setattr(settings, "naver_client_id", "my-id")
+    monkeypatch.setattr(settings, "naver_client_secret", "my-secret")
+    seen = {}
+
+    def handler(request):
+        seen["url"] = request.url
+        seen["headers"] = request.headers
+        return httpx.Response(200, json={"items": [
+            {"title": "에어팟", "lprice": "250000", "productType": "2", "mallName": "11번가"}]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await search_naver(client, "에어팟 프로")
+
+    items = asyncio.run(run())
+    assert len(items) == 1
+    assert seen["url"].host == "openapi.naver.com"
+    assert seen["url"].path == "/v1/search/shop.json"
+    params = dict(seen["url"].params)
+    assert params == {"query": "에어팟 프로", "display": "100", "sort": "sim", "exclude": "used:rental"}
+    assert seen["headers"]["X-Naver-Client-Id"] == "my-id"
+    assert seen["headers"]["X-Naver-Client-Secret"] == "my-secret"
+
+
+def _status_error(code, body):
+    request = httpx.Request("GET", "https://openapi.naver.com/v1/search/shop.json")
+    response = httpx.Response(code, json=body, request=request)
+    return httpx.HTTPStatusError("error", request=request, response=response)
+
+
+def test_describe_error_shows_naver_message_and_hint():
+    msg = describe_error(_status_error(401, {
+        "errorMessage": "NID AUTH Result Invalid (1000) : Authentication failed. (인증에 실패했습니다.)",
+        "errorCode": "024"}))
+    assert msg.startswith("HTTP 401")
+    assert ".env의 API 키" in msg
+    assert "인증에 실패했습니다" in msg
+
+
+def test_describe_error_403_points_to_search_api_setting():
+    assert "'검색'" in describe_error(_status_error(403, {}))
+
+
+def test_describe_error_timeout():
+    assert describe_error(httpx.ReadTimeout("t")) == "응답 시간 초과"
