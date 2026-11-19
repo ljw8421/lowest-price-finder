@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>최저가 찾기</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #16181d; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #0f9d58; --accent-weak: #e7f6ee;
+    --naver: #03c75a; --coupang: #e52528;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo",
+         "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 860px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  form { display: flex; gap: 8px; }
+  input[type=search] { flex: 1; font-size: 17px; padding: 14px 16px; border: 1px solid var(--line);
+         border-radius: 12px; background: var(--card); outline: none; }
+  input[type=search]:focus { border-color: var(--accent); }
+  button { font-size: 16px; padding: 0 22px; border: 0; border-radius: 12px;
+           background: var(--text); color: #fff; cursor: pointer; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .opts { margin: 12px 2px 0; color: var(--muted); font-size: 14px; }
+  .notice { margin-top: 20px; padding: 12px 14px; border-radius: 10px; font-size: 14px;
+            background: #fff8e1; color: #7a5b00; }
+  .notice.err { background: #fdecea; color: #8a1c13; }
+
+  .best { margin-top: 28px; background: var(--card); border: 2px solid var(--accent);
+          border-radius: 16px; padding: 20px; display: flex; gap: 18px; align-items: center; }
+  .best img, .row img { object-fit: contain; background: #fafafa; border-radius: 10px; }
+  .best img { width: 110px; height: 110px; }
+  .best .label { display: inline-block; background: var(--accent); color: #fff; font-size: 12px;
+                 font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .best .price { font-size: 30px; font-weight: 800; margin: 6px 0 2px; }
+  .best .title { color: var(--muted); font-size: 14px; }
+  .best a.go { margin-left: auto; white-space: nowrap; text-decoration: none; background: var(--accent);
+               color: #fff; padding: 12px 18px; border-radius: 10px; font-weight: 700; }
+
+  .meta { margin: 28px 2px 10px; color: var(--muted); font-size: 14px; display: flex;
+          justify-content: space-between; }
+  .list { background: var(--card); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-top: 1px solid var(--line);
+         text-decoration: none; color: inherit; }
+  .row:first-child { border-top: 0; }
+  .row:hover { background: #fafbfc; }
+  .row img, .row .noimg { width: 56px; height: 56px; flex: none; }
+  .noimg { background: #f0f1f3; border-radius: 10px; }
+  .row .info { flex: 1; min-width: 0; }
+  .row .t { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .m { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.naver { background: var(--naver); } .dot.coupang { background: var(--coupang); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #f0f1f3; }
+  .row .p { text-align: right; font-weight: 700; white-space: nowrap; }
+  .row .diff { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .row.first .p { color: var(--accent); }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  @media (max-width: 560px) {
+    .best { flex-wrap: wrap; } .best a.go { margin-left: 0; width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>최저가 찾기</h1>
+  <p class="sub">상품명을 입력하면 네이버 쇼핑과 쿠팡에서 가장 싼 곳을 찾아드려요.</p>
+
+  <form id="f">
+    <input type="search" id="q" placeholder="예: 에어팟 프로 3" autofocus required>
+    <button id="btn">검색</button>
+  </form>
+  <div class="opts">
+    <label><input type="checkbox" id="strict" checked> 케이스·필름 같은 액세서리와 너무 싼 다른 상품 제외</label>
+  </div>
+
+  <div id="out"></div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const won = (n) => n.toLocaleString("ko-KR") + "원";
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => /^https?:\/\//.test(u || "") ? u : "#";
+
+function img(src, cls = "") {
+  return src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+             : `<div class="noimg ${cls}"></div>`;
+}
+
+function render(d) {
+  let h = "";
+  if (d.demo) h += `<div class="notice">지금은 <b>데모 데이터</b>예요. .env 파일에 API 키를 넣으면 실제 가격이 나와요.</div>`;
+  for (const [src, msg] of Object.entries(d.errors || {}))
+    h += `<div class="notice err">${src === "naver" ? "네이버" : "쿠팡"} 검색 실패: ${esc(msg)}</div>`;
+
+  if (!d.cheapest) {
+    $("#out").innerHTML = h + `<div class="list" style="margin-top:28px"><div class="empty">검색 결과가 없어요.</div></div>`;
+    return;
+  }
+  const b = d.cheapest;
+  h += `
+    <div class="best">
+      ${img(b.image)}
+      <div>
+        <span class="label">최저가 · ${esc(b.mall)}</span>
+        <div class="price">${won(b.price)}</div>
+        <div class="title">${esc(b.title)}</div>
+      </div>
+      <a class="go" href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener">구매하러 가기 →</a>
+    </div>
+    <div class="meta">
+      <span>가격 낮은 순 ${d.count}개${d.filtered_out ? ` · ${d.filtered_out}개 제외됨` : ""}</span>
+      <span>배송비 별도일 수 있어요</span>
+    </div>
+    <div class="list">` +
+    d.items.map((it, i) => `
+      <a class="row ${i === 0 ? "first" : ""}" href="${esc(safeUrl(it.link))}" target="_blank" rel="noopener">
+        ${img(it.image)}
+        <div class="info">
+          <div class="t">${esc(it.title)}</div>
+          <div class="m"><span class="dot ${it.source}"></span>${esc(it.mall)}
+            ${it.badge ? `<span class="tag">${esc(it.badge)}</span>` : ""}</div>
+        </div>
+        <div class="p">${won(it.price)}
+          ${i > 0 ? `<span class="diff">+${won(it.price - b.price)}</span>` : ""}</div>
+      </a>`).join("") +
+    `</div>`;
+  $("#out").innerHTML = h;
+}
+
+$("#f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("#q").value.trim();
+  if (!q) return;
+  $("#btn").disabled = true;
+  $("#out").innerHTML = `<div class="list" style="margin-top:28px"><div class="empty">찾는 중…</div></div>`;
+  try {
+    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}&strict=${$("#strict").checked ? 1 : 0}`);
+    render(await r.json());
+  } catch (err) {
+    $("#out").innerHTML = `<div class="notice err">서버에 연결하지 못했어요: ${esc(err.message)}</div>`;
+  } finally {
+    $("#btn").disabled = false;
+  }
+});
+</script>
+</body>
+</html>
