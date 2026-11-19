@@ -8,7 +8,7 @@
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #16181d; --muted: #6b7280;
     --line: #e5e7eb; --accent: #0f9d58; --accent-weak: #e7f6ee;
-    --naver: #03c75a; --coupang: #e52528;
+    --naver: #03c75a; --coupang: #e52528; --elevenst: #ff0038;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo",
@@ -59,7 +59,7 @@
   .row .t { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .m { font-size: 13px; color: var(--muted); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .dot.naver { background: var(--naver); } .dot.coupang { background: var(--coupang); }
+  .dot.naver { background: var(--naver); } .dot.coupang { background: var(--coupang); } .dot.elevenst { background: var(--elevenst); }
   .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #f0f1f3; }
   .row .p { text-align: right; font-weight: 700; white-space: nowrap; }
   .row .diff { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
@@ -73,7 +73,7 @@
 <body>
 <main>
   <h1><a href="/">최저가 찾기</a></h1>
-  <p class="sub">상품명을 입력하면 네이버 쇼핑{% if result and result.sources.coupang %}과 쿠팡{% endif %}에서 가장 싼 곳을 찾아드려요.</p>
+  <p class="sub">상품명을 입력하면 11번가{% if result and result.sources.coupang %}와 쿠팡{% endif %}에서 가장 싼 상품을 찾아드려요.</p>
 
   <form method="get" action="/">
     <div class="bar">
@@ -93,9 +93,14 @@
       <div class="notice">지금은 <b>데모 데이터</b>예요. .env 파일에 API 키를 넣으면 실제 가격이 나와요.</div>
     {% endif %}
     {% for source, message in result.errors.items() %}
-      <div class="notice err">{{ "네이버" if source == "naver" else "쿠팡" }} 검색 실패: {{ message }}</div>
+      <div class="notice err">{{ source }} 검색 실패: {{ message }}</div>
     {% endfor %}
 
+    {% for s in result.shortcuts %}
+      <a class="coupang-link" href="{{ s.url | safe_url }}" target="_blank" rel="noopener">
+        <span class="dot {{ s.source }}"></span> {{ s.name }} 가격은 자동으로 가져올 수 없어요. <b>{{ s.name }}에서 직접 확인하기 →</b>
+      </a>
+    {% endfor %}
     {% set best = result.cheapest %}
     {% if not best %}
       <div class="list" style="margin-top:28px"><div class="empty">검색 결과가 없어요.</div></div>
@@ -110,11 +115,6 @@
         <a class="go" href="{{ best.link | safe_url }}" target="_blank" rel="noopener">구매하러 가기 →</a>
       </div>
 
-      {% if not result.sources.coupang and not result.demo %}
-        <a class="coupang-link" href="{{ result.coupang_search_url | safe_url }}" target="_blank" rel="noopener">
-          <span class="dot coupang"></span> 쿠팡 가격은 아직 자동 비교가 안 돼요. <b>쿠팡에서 직접 확인하기 →</b>
-        </a>
-      {% endif %}
 
       <div class="meta">
         <span class="sorts">
@@ -122,7 +122,7 @@
           <a href="{{ sort_urls.relevance }}" class="{{ 'on' if sort == 'relevance' }}">관련도순</a>
           · {{ result['items'] | length }}개 표시 (전체 {{ result.count }}개{% if result.filtered_out %}, {{ result.filtered_out }}개 제외됨{% endif %})
         </span>
-        <span>배송비·쿠폰·카드 할인은 쇼핑몰에서 확인하세요</span>
+        <span>11번가 가격은 할인모음가 기준 · 쿠폰·카드 할인은 쇼핑몰에서 확인하세요</span>
       </div>
       <div class="list">
         {% for it in result['items'] %}
@@ -130,7 +130,7 @@
             {% if it.image %}<img src="{{ it.image }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<div class="noimg"></div>{% endif %}
             <div class="info">
               <div class="t">{{ it.title }}</div>
-              <div class="m"><span class="dot {{ it.source }}"></span>{{ it.mall }}
+              <div class="m"><span class="dot {{ it.source }}"></span>{{ it.mall }}{% if it.seller %} · {{ it.seller }}{% endif %}
                 {% if it.badge %}<span class="tag">{{ it.badge }}</span>{% endif %}</div>
             </div>
             <div class="p">{{ it.price | won }}

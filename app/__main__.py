@@ -14,12 +14,12 @@ def check_keys(query: str = "에어팟") -> int:
     from .search import fetch_all
 
     if settings.demo_mode:
-        print("API 키가 없습니다. .env에 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET을 넣어 주세요.")
+        print("API 키가 없습니다. .env에 ELEVENST_API_KEY를 넣어 주세요.")
         return 1
     items, errors = asyncio.run(fetch_all(query))
     ok = True
-    for name, enabled in (("naver", settings.naver_enabled), ("coupang", settings.coupang_enabled)):
-        label = "네이버 쇼핑" if name == "naver" else "쿠팡 파트너스"
+    for name, label, enabled in (("elevenst", "11번가", settings.elevenst_enabled),
+                                 ("coupang", "쿠팡", settings.coupang_enabled)):
         if not enabled:
             print(f"- {label}: 키 없음 (건너뜀)")
         elif name in errors:
@@ -37,7 +37,7 @@ def main() -> None:
 
     print("=" * 50)
     print(" 최저가 찾기")
-    print(f" 네이버 쇼핑  : {'키 있음' if settings.naver_enabled else '키 없음'}")
+    print(f" 11번가       : {'키 있음' if settings.elevenst_enabled else '키 없음'}")
     print(f" 쿠팡 파트너스: {'키 있음' if settings.coupang_enabled else '키 없음'}")
     if settings.demo_mode:
         print(" ※ API 키가 없어 데모 데이터로 동작합니다 (.env 설정 필요)")

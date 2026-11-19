@@ -19,16 +19,14 @@ def _int_env(name: str, default: int) -> int:
 
 @dataclass
 class Settings:
-    naver_client_id: str = ""
-    naver_client_secret: str = ""
+    elevenst_api_key: str = ""
     coupang_access_key: str = ""
     coupang_secret_key: str = ""
     port: int = 8000
-    cache_seconds: int = 600
 
     @property
-    def naver_enabled(self) -> bool:
-        return bool(self.naver_client_id and self.naver_client_secret)
+    def elevenst_enabled(self) -> bool:
+        return bool(self.elevenst_api_key)
 
     @property
     def coupang_enabled(self) -> bool:
@@ -37,17 +35,15 @@ class Settings:
     @property
     def demo_mode(self) -> bool:
         """API 키가 하나도 없으면 가짜 데이터로 화면만 보여준다."""
-        return not (self.naver_enabled or self.coupang_enabled)
+        return not (self.elevenst_enabled or self.coupang_enabled)
 
     @classmethod
     def from_env(cls) -> "Settings":
         return cls(
-            naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
-            naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
+            elevenst_api_key=os.getenv("ELEVENST_API_KEY", "").strip(),
             coupang_access_key=os.getenv("COUPANG_ACCESS_KEY", "").strip(),
             coupang_secret_key=os.getenv("COUPANG_SECRET_KEY", "").strip(),
             port=_int_env("PORT", 8000),
-            cache_seconds=_int_env("CACHE_SECONDS", 600),
         )
 
 

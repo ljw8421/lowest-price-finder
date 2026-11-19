@@ -1,0 +1,70 @@
+# lowest-price-finder
+
+상품명을 입력하면 국내 쇼핑몰에서 최저가 상품을 찾아 보여주는 **개인용** 웹 도구.
+사용자 화면과 문서는 한국어로 쓴다.
+
+## 세션 시작 시
+
+- `.claude/settings.json`의 SessionStart 훅이 `scripts/check_setup.py --hook`을 실행해 환경 점검 결과를 넣어 준다.
+  (venv·패키지, `.env`의 키 유무, 11번가 키 만료일, git 상태, chrome-devtools MCP)
+- 점검 결과와 아래 **현재 상태 / 다음 할 일**을 먼저 확인하고, 실패·확인 필요 항목이 작업에 영향을 주면 사용자에게 먼저 알린다.
+- 직접 점검: `python3 scripts/check_setup.py`
+
+## 실행과 테스트
+
+```bash
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m app                    # http://127.0.0.1:8000
+python -m app --check            # .env의 키로 실제 API를 한 번 호출해 확인
+pytest                           # 실제 API 호출 없음 (가짜 응답)
+```
+
+## 확정된 설계 (2026-11-19, grill-me로 결정)
+
+| 항목 | 결정 |
+|---|---|
+| 용도 | 개인용. 서버는 `127.0.0.1`에서만 연다. 지금은 Mac, 나중에 Windows에서도 실행 |
+| 스택 | Python 3.10+ / FastAPI + Jinja2 페이지 한 장 / httpx / venv + requirements.txt / `.env`(python-dotenv) |
+| 화면 | 일반 HTML 폼 `GET /?q=&sort=&strict=` 을 서버가 렌더링. JSON은 `/api/search` |
+| 결과 | 관련도순 100건을 받아 → 액세서리 필터(기본 켬) → **가격순 10건**. 관련도순 전환 가능 |
+| 가격 기준 | 판매가(11번가는 할인모음가). 쿠폰·카드 할인은 쇼핑몰에서 직접 확인 |
+| 상품 일치 | 비슷한 상품 포함 (정확한 모델 매칭 안 함) |
+| 캐시 | **없음.** 11번가 약관 제6조 ④ "제공 데이터를 복제·저장할 수 없음" |
+| 작업 방식 | 브랜치에서 작업 → PR → main |
+
+## 데이터 소스 현황 (2026-11-19 조사)
+
+| 소스 | 상태 | 비고 |
+|---|---|---|
+| **11번가 Open API** (`ProductSearch`) | **사용 중** | 키 1회원 1개, 180일 유효(사용 시 자동 연장), 키 공유 금지, 데이터 저장 금지. 응답은 EUC-KR XML, 오류도 HTTP 200 `<ErrorResponse>` |
+| 쿠팡 파트너스 API | 코드만 있음 (키 없으면 꺼짐) | 공식 FAQ: 누적 판매 15만 원 이상 → 최종 승인 후에만 API 사용 가능. WING Open API는 판매자용이라 검색 불가 |
+| 네이버 쇼핑 검색 API | **종료 (2026-07-31)** | 대체 API 없음. 검색 API 신규 신청도 7-30 중단. 쇼핑·스마트스토어 robots.txt는 `Disallow: /` → 수집 금지. 바로가기 링크만 제공 |
+| 다나와 검색 페이지 수집 | **보류** (사용자 결정) | robots.txt 허용(Crawl-delay 10), 약관은 영리 목적 복제만 금지. HTML 안에 가격 있음. 구조 바뀌면 깨짐 |
+
+API로 못 가져오는 곳(네이버 쇼핑, 쿠팡)은 결과 위에 "직접 확인하기" 바로가기 링크를 보여준다.
+
+## 현재 상태
+
+- 브랜치 `feat/fastapi-rewrite`, PR: https://github.com/ljw8421/lowest-price-finder/pull/1 (아직 머지 안 함)
+- 11번가 소스 구현 + 테스트 완료. **실제 키로 호출은 아직 못 해 봄.**
+- 11번가 가이드의 예제와 필드 표가 태그 이름이 다르다 (`ProductImage`/`ImageUrl`, `DetailPageUrl`/`ProductDetailUrl`).
+  지금은 둘 다 읽는다. 실제 응답을 받으면 어느 쪽인지 확인해서 정리할 것.
+- `SalePrice`(할인모음가)를 우선 쓰고 0이면 `ProductPrice`. 실제 응답에서 두 값의 관계 확인 필요.
+
+## 다음 할 일
+
+1. **11번가 키 발급**: https://openapi.11st.co.kr → API 관리. 로그인이 **셀러오피스 로그인**으로 연결된다.
+   일반 회원 아이디로 되는지, 셀러(개인 판매자) 가입이 필요한지 확인. 발급 후 `.env`의 `ELEVENST_API_KEY`, `ELEVENST_KEY_ISSUED` 입력.
+2. `python -m app --check`로 실제 호출 → 위 "현재 상태"의 필드 이름·가격 필드 확인 후 `parse_elevenst` 정리, 테스트 갱신.
+3. 실제 검색 결과로 액세서리 필터(중앙값 35% 기준)가 적절한지 확인.
+4. PR #1 설명 갱신 후 머지 여부를 사용자와 결정.
+5. (보류) 다나와 수집, 쿠팡 파트너스 승인.
+
+## 작업 규칙
+
+- Python 3.10 문법까지만 쓴다 (Windows PC 버전 미정). OS별 코드나 셸 스크립트에 의존하지 않는다.
+- 외부 API 응답 형식을 추측하지 말고 공식 문서 → 실제 응답 순으로 확인한다.
+  (네이버 쇼핑 API는 예전 문서가 남아 있어 종료를 늦게 알았다. 공지사항까지 확인할 것.)
+- API 키 값은 출력·커밋하지 않는다. `.env`는 git에 올리지 않는다.
+- 사용자 계정에 변경이 생기는 사이트 작업(앱 등록, 설정 변경, 약관 동의)은 하기 전에 확인받는다.
+- `scripts/check_setup.py`는 표준 라이브러리만 쓴다 (venv 없이도 돌아야 함).
